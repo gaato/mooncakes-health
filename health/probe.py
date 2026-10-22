@@ -27,6 +27,7 @@ TARGET_NAMES = {"wasm": "Wasm", "wasm-gc": "WasmGC", "js": "Js", "native": "Nati
 ERROR_CODE = re.compile(r"Error: \[(\d{4})\]")
 REJECTED = re.compile(r"`moon\.(?:mod|pkg)\.json` at '[^']*/\.mooncakes/([^/']+/[^/']+)")
 # The resolved versions do not provide a package some module imports.
+POSTADD = re.compile(r"failed to execute postadd script in [^\n]*?\.mooncakes/([^/\s]+/[^/\s]+)")
 MISSING_IMPORT = re.compile(r"Cannot find import '([^']+)' in ([^\s]+)")
 NETWORK = re.compile(r"(?i)failed to download|error sending request|connection (?:reset|refused|closed)|timed out|dns error|status code 5\d\d")
 
@@ -72,6 +73,7 @@ def summarize(code: int | None, log: str, work: Path) -> dict:
         "network": bool(NETWORK.search(log)),
         "rejected": REJECTED.findall(log),
         "missing_import": MISSING_IMPORT.search(log),
+        "postadd": POSTADD.search(log),
     }
 
 
@@ -113,6 +115,11 @@ def verdict_resolve(s: dict, add: list[str]) -> dict:
         rejected = ", ".join(sorted(set(s["rejected"])))
         tried = " even with the added versions" if add else ""
         return {**base, "kind": "dep_manifest", "message": f"moon rejects the JSON manifest of {rejected}{tried}."}
+    if s["postadd"]:
+        # Install hooks may need tools this environment does not have; that
+        # says nothing about whether the module works.
+        who = s["postadd"].group(1)
+        return {**base, "kind": "unknown", "message": f"The install script of {who} failed in the checking environment."}
     if s["missing_import"]:
         pkg, where = s["missing_import"].groups()
         message = f"{where} imports {pkg}, which the resolved versions do not have"

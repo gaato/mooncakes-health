@@ -39,11 +39,12 @@ INDEX = index_of(
     row("f/gone", "0.1.0", {"b/lib": "9.9.9"}),
     row("g/fine", "0.1.0", {"b/lib": "0.3.6"}),
     row("h/yanked", "0.1.0", yanked=True),
+    row("test/fixture", "0.1.0"),
 )
 FORMATS = {
     "b/lib@0.3.5": fm.LEGACY, "b/lib@0.3.6": fm.NEW, "b/lib@0.4.0": fm.NEW,
     "a/app@1.0.0": fm.NEW, "c/old@0.1.0": fm.LEGACY, "x/x@0.4.0": fm.LEGACY, "x/x@0.5.0": fm.NEW,
-    "d/uses-x@0.1.0": fm.NEW, "e/stuck@0.1.0": fm.NEW, "f/gone@0.1.0": fm.NEW, "g/fine@0.1.0": fm.NEW,
+    "d/uses-x@0.1.0": fm.NEW, "test/fixture@0.1.0": fm.NEW, "e/stuck@0.1.0": fm.NEW, "f/gone@0.1.0": fm.NEW, "g/fine@0.1.0": fm.NEW,
 }
 
 
@@ -121,6 +122,7 @@ class Plan(unittest.TestCase):
         self.assertEqual(decided["c/old"]["kind"], "own_manifest")
         self.assertEqual(decided["e/stuck"]["add"], [])
         self.assertNotIn("h/yanked", decided)
+        self.assertNotIn("test/fixture", decided)
         self.assertEqual({j["name"] for j in jobs}, {"a/app", "b/lib", "d/uses-x", "x/x"})
         self.assertEqual(shards, 1)
 
@@ -210,6 +212,12 @@ class Probe(unittest.TestCase):
         self.assertEqual(v["kind"], "build")
         self.assertIn("moonbit-community/XMLParser@0.2.6 imports moonbitlang/quickcheck/gen", v["message"])
         self.assertEqual(verdict_resolve(self.s(log), ["x/y@1.0.0"])["kind"], "dep_manifest")
+
+    def test_failed_install_script_is_unknown(self):
+        log = "2: failed to execute postadd script in probe/.mooncakes/mizchi/v8,\n       command: bash\n"
+        v = verdict_resolve(self.s(log), [])
+        self.assertEqual(v["kind"], "unknown")
+        self.assertIn("mizchi/v8", v["message"])
 
     def test_download_failure_is_unknown(self):
         self.assertEqual(verdict_resolve(self.s("error: failed to download x/y"), [])["kind"], "unknown")

@@ -28,9 +28,13 @@ class Index:
         return None
 
     def latest(self) -> dict[str, Version]:
-        """The newest version that is not yanked, for every module that has one."""
+        """The newest version that is not yanked, for every module that has
+        one, except the registry's test fixtures and the core library, which
+        ships with the toolchain."""
         out = {}
         for name, versions in self.modules.items():
+            if name.startswith("test/") or name == "moonbitlang/core":
+                continue
             live = [v for v in versions if not v.yanked]
             if live:
                 out[name] = live[-1]
