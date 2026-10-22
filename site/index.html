@@ -124,14 +124,14 @@ function row(m, open) {
   if (m.log) body.append(el("p", { text: "Output of moon:" }), el("pre", { text: m.log }));
   body.append(el("p", { class: "muted", text:
     `Target ${m.target}` + (m.imported ? `, ${m.imported} package${m.imported > 1 ? "s" : ""} imported` : "") +
-    ` · published ${(m.created_at || "").slice(0, 10) || "—"} · checked ${(m.checked_at || "").slice(0, 10)} with ${m.moon}` }));
+    ` · checked ${(m.checked_at || "").slice(0, 10)} with ${m.moon}` }));
   body.append(el("p", {}, el("a", { href: `https://mooncakes.io/docs/${m.name}`, text: "Module page" }),
     " · ", el("a", { href: `?m=${encodeURIComponent(m.name)}`, text: "Link to this row" })));
   const d = el("details", {},
     el("summary", {},
       el("span", { class: `mark ${g.cls}`, "aria-label": g.label, title: g.label, text: g.mark }),
       el("span", { class: "name", text: m.name }),
-      el("span", { class: "ver", text: m.version }),
+      el("span", { class: "ver", title: "Version and the date it was published", text: `${m.version} · ${(m.created_at || "").slice(0, 10) || "—"}` }),
       el("span", { class: "reason", text: reason(m) })),
     body);
   if (open) d.open = true;
