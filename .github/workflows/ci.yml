@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: ghcr.io/gaato/moonbit:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Python
+        run: apt-get update -qq && apt-get install -y -qq --no-install-recommends python3
+
+      # mooncakes-graph reads the index independently; the oracle test
+      # compares both readings of the live index.
+      - name: Fetch the registry index and mooncakes-graph
+        run: |
+          moon update
+          moon install gaato/mooncakes-graph/cmd/mooncakes-graph
+
+      - name: Test
+        run: MOONCAKES_GRAPH="$(command -v mooncakes-graph)" python3 -m unittest -v

@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mooncakes health</title>
+<meta name="description" content="Whether the newest version of each mooncakes.io module works with the current moon toolchain, checked daily.">
+<style>
+:root {
+  --bg: #ffffff; --fg: #1d1f23; --muted: #626872; --line: #e3e5e8; --panel: #f5f6f8;
+  --ok: #1f7a3d; --fix: #9a5b00; --bad: #b42318; --unk: #626872; --link: #1f5fbf;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171a; --fg: #e6e8eb; --muted: #9aa1ab; --line: #2c3036; --panel: #1d2024;
+    --ok: #5cc982; --fix: #f0b35a; --bad: #f2837a; --unk: #9aa1ab; --link: #7fb0ff;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171a; --fg: #e6e8eb; --muted: #9aa1ab; --line: #2c3036; --panel: #1d2024;
+  --ok: #5cc982; --fix: #f0b35a; --bad: #f2837a; --unk: #9aa1ab; --link: #7fb0ff;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 1.5rem; margin: 0 0 4px; }
+p { margin: 0 0 8px; }
+a { color: var(--link); }
+code, pre { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: 0.85rem; }
+.muted { color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.legend button { display: flex; gap: 8px; align-items: baseline; padding: 8px 12px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--fg);
+  font: inherit; cursor: pointer; text-align: left; }
+.legend button[aria-pressed="true"] { border-color: var(--fg); }
+.legend .n { font-weight: 600; font-variant-numeric: tabular-nums; }
+.mark { display: inline-block; width: 1.4em; text-align: center; font-weight: 700; }
+.k-ok { color: var(--ok); } .k-fix { color: var(--fix); } .k-bad { color: var(--bad); } .k-unk { color: var(--unk); }
+.tools { display: flex; gap: 8px; margin-bottom: 8px; }
+.tools input { flex: 1; min-width: 0; padding: 8px 12px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--bg); color: var(--fg); font: inherit; }
+#count { margin: 8px 0; }
+ul.rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+ul.rows > li { border-bottom: 1px solid var(--line); }
+details > summary { display: grid; grid-template-columns: 1.6em minmax(0, 1fr) auto; gap: 8px;
+  padding: 8px 4px; cursor: pointer; list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+.name { overflow-wrap: anywhere; }
+.ver { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.reason { grid-column: 2 / 4; color: var(--muted); font-size: 0.9rem; }
+.body { padding: 0 4px 12px calc(1.6em + 12px); }
+.body pre { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 12px; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0; }
+#more { margin-top: 12px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); color: var(--fg); font: inherit; cursor: pointer; }
+footer { margin-top: 32px; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>mooncakes health</h1>
+  <p>Can you use the newest version of each <a href="https://mooncakes.io">mooncakes.io</a> module with the current <code>moon</code>?
+    Every day, each module is added to an empty module and checked with <code>moon check</code>, the way a user would meet it.</p>
+  <p class="muted" id="meta">Loading…</p>
+
+  <div class="legend" id="legend"></div>
+  <div class="tools"><input id="q" type="search" placeholder="Filter by module or owner, e.g. moonbitlang/" aria-label="Filter modules"></div>
+  <p class="muted" id="count"></p>
+  <ul class="rows" id="rows"></ul>
+  <button id="more" hidden>Show more</button>
+
+  <footer class="muted">
+    <p>Only the newest non-yanked version of each module is checked, on its preferred target (wasm-gc if it names none).
+      “Add a line” means the module itself is fine, but a dependency version it requires is rejected by <code>moon</code>; requiring the listed newer version next to it works around that.</p>
+    <p>Source and method: <a href="https://github.com/gaato/mooncakes-health">gaato/mooncakes-health</a>.</p>
+  </footer>
+</main>
+<script>
+"use strict";
+const GROUPS = [
+  { id: "ok", mark: "○", cls: "k-ok", label: "Usable", kinds: ["ok"] },
+  { id: "fix", mark: "!", cls: "k-fix", label: "Add a line", kinds: ["workaround"] },
+  { id: "bad", mark: "✕", cls: "k-bad", label: "Not usable", kinds: ["own_manifest", "dep_manifest", "unresolvable", "build"] },
+  { id: "unk", mark: "?", cls: "k-unk", label: "Unknown", kinds: ["unknown"] },
+];
+const groupOf = kind => GROUPS.find(g => g.kinds.includes(kind)) || GROUPS[3];
+const PAGE = 200;
+let all = [], shown = PAGE, active = new Set();
+
+function el(tag, props = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") e.className = v; else if (k === "text") e.textContent = v; else e.setAttribute(k, v);
+  }
+  for (const c of children) if (c != null) e.append(c);
+  return e;
+}
+
+function reason(m) {
+  const list = xs => xs.join(", ");
+  switch (m.kind) {
+    case "ok": return m.message || "Usable as is.";
+    case "workaround": return `Requires ${list(m.blockers)}, which moon rejects. Add the newer version${m.add.length > 1 ? "s" : ""} below.`;
+    case "own_manifest": return "Its own manifest is moon.mod.json or moon.pkg.json, which moon rejects. Needs a new release.";
+    case "dep_manifest":
+      if (m.add.length) return `Requires ${list(m.blockers)}, which moon rejects. ${m.message || "Adding newer versions does not help."}`;
+      return `Requires ${list(m.blockers)}, which moon rejects, and no newer version of it uses the new format.`;
+    case "unresolvable": return `Requires ${list(m.blockers)}, which is not in the registry.`;
+    case "build": return `moon check fails${m.errors.length ? ` (${m.errors.map(e => "E" + e).join(", ")})` : ""}.`;
+    default: return m.message || "Could not be checked.";
+  }
+}
+
+function row(m, open) {
+  const g = groupOf(m.kind);
+  const body = el("div", { class: "body" });
+  if (m.kind === "workaround" || (m.kind === "dep_manifest" && m.add.length)) {
+    body.append(el("p", { text: m.kind === "workaround" ? "Add to the import block of your moon.mod:" : "Tried adding:" }),
+      el("pre", { text: m.add.map(a => `  "${a}",`).join("\n") }));
+  }
+  if (m.log) body.append(el("p", { text: "Output of moon:" }), el("pre", { text: m.log }));
+  body.append(el("p", { class: "muted", text:
+    `Target ${m.target}` + (m.imported ? `, ${m.imported} package${m.imported > 1 ? "s" : ""} imported` : "") +
+    ` · published ${(m.created_at || "").slice(0, 10) || "—"} · checked ${(m.checked_at || "").slice(0, 10)} with ${m.moon}` }));
+  body.append(el("p", {}, el("a", { href: `https://mooncakes.io/docs/${m.name}`, text: "Module page" }),
+    " · ", el("a", { href: `?m=${encodeURIComponent(m.name)}`, text: "Link to this row" })));
+  const d = el("details", {},
+    el("summary", {},
+      el("span", { class: `mark ${g.cls}`, "aria-label": g.label, title: g.label, text: g.mark }),
+      el("span", { class: "name", text: m.name }),
+      el("span", { class: "ver", text: m.version }),
+      el("span", { class: "reason", text: reason(m) })),
+    body);
+  if (open) d.open = true;
+  return el("li", {}, d);
+}
+
+function filtered() {
+  const q = document.getElementById("q").value.trim().toLowerCase();
+  return all.filter(m => (!active.size || active.has(groupOf(m.kind).id)) && (!q || m.name.toLowerCase().includes(q)));
+}
+
+function render() {
+  const items = filtered();
+  const exact = new URLSearchParams(location.search).get("m");
+  const ul = document.getElementById("rows");
+  ul.replaceChildren(...items.slice(0, shown).map(m => row(m, m.name === exact)));
+  document.getElementById("count").textContent = `${items.length} of ${all.length} modules`;
+  document.getElementById("more").hidden = items.length <= shown;
+}
+
+function legend(counts) {
+  const box = document.getElementById("legend");
+  for (const g of GROUPS) {
+    const n = g.kinds.reduce((s, k) => s + (counts[k] || 0), 0);
+    const b = el("button", { "aria-pressed": "false" },
+      el("span", { class: `mark ${g.cls}`, text: g.mark }), el("span", { text: g.label }), el("span", { class: "n", text: String(n) }));
+    b.addEventListener("click", () => {
+      active.has(g.id) ? active.delete(g.id) : active.add(g.id);
+      b.setAttribute("aria-pressed", String(active.has(g.id)));
+      shown = PAGE; render();
+    });
+    box.append(b);
+  }
+}
+
+fetch("status.json").then(r => r.json()).then(s => {
+  all = Object.values(s.modules);
+  document.getElementById("meta").textContent =
+    `${s.moon} · checked ${s.generated_at.replace("T", " ").slice(0, 16)} UTC · registry index of ${(s.index_fetched_at || "").replace("T", " ").slice(0, 16)} UTC`;
+  legend(s.counts);
+  const exact = new URLSearchParams(location.search).get("m");
+  if (exact) document.getElementById("q").value = exact;
+  render();
+}).catch(() => { document.getElementById("meta").textContent = "Could not load status.json."; });
+document.getElementById("q").addEventListener("input", () => { shown = PAGE; render(); });
+document.getElementById("more").addEventListener("click", () => { shown += PAGE; render(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    ":timezone(Asia/Tokyo)"
+  ],
+  "schedule": [
+    "before 9am on monday"
+  ],
+  "packageRules": [
+    {
+      "description": "Merge non-major GitHub Actions updates once CI passes; the MoonBit image moves with moonbit-version, so images and majors stay manual.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchDepTypes": [
+        "action"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest",
+        "pinDigest"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": false
+    }
+  ]
+}
