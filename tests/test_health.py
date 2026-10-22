@@ -217,7 +217,7 @@ class Probe(unittest.TestCase):
         log = "2: failed to execute postadd script in probe/.mooncakes/mizchi/v8,\n       command: bash\n"
         v = verdict_resolve(self.s(log), [])
         self.assertEqual(v["kind"], "unknown")
-        self.assertIn("mizchi/v8", v["message"])
+        self.assertIn("of mizchi/v8 failed", v["message"])
 
     def test_download_failure_is_unknown(self):
         self.assertEqual(verdict_resolve(self.s("error: failed to download x/y"), [])["kind"], "unknown")

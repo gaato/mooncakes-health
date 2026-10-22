@@ -27,7 +27,7 @@ TARGET_NAMES = {"wasm": "Wasm", "wasm-gc": "WasmGC", "js": "Js", "native": "Nati
 ERROR_CODE = re.compile(r"Error: \[(\d{4})\]")
 REJECTED = re.compile(r"`moon\.(?:mod|pkg)\.json` at '[^']*/\.mooncakes/([^/']+/[^/']+)")
 # The resolved versions do not provide a package some module imports.
-POSTADD = re.compile(r"failed to execute postadd script in [^\n]*?\.mooncakes/([^/\s]+/[^/\s]+)")
+POSTADD = re.compile(r"failed to execute postadd script in [^\n]*?\.mooncakes/([^/\s,]+/[^/\s,]+)")
 MISSING_IMPORT = re.compile(r"Cannot find import '([^']+)' in ([^\s]+)")
 NETWORK = re.compile(r"(?i)failed to download|error sending request|connection (?:reset|refused|closed)|timed out|dns error|status code 5\d\d")
 
