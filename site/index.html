@@ -107,7 +107,9 @@ function reason(m) {
       if (m.add.length) return `Requires ${list(m.blockers)}, which moon rejects. ${m.message || "Adding newer versions does not help."}`;
       return `Requires ${list(m.blockers)}, which moon rejects, and no newer version of it uses the new format.`;
     case "unresolvable": return `Requires ${list(m.blockers)}, which is not in the registry.`;
-    case "build": return `moon check fails${m.errors.length ? ` (${m.errors.map(e => "E" + e).join(", ")})` : ""}.`;
+    case "build":
+      if (m.message && m.message !== "moon check fails.") return m.message;
+      return `moon check fails${m.errors.length ? ` (${m.errors.map(e => "E" + e).join(", ")})` : ""}.`;
     default: return m.message || "Could not be checked.";
   }
 }

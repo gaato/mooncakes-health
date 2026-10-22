@@ -119,6 +119,7 @@ class Plan(unittest.TestCase):
         decided, jobs, fallback, shards, _ = run(INDEX, MOON, previous, known, NOW)
         self.assertEqual(decided["g/fine"]["kind"], "ok")  # same key: not checked again
         self.assertEqual(decided["c/old"]["kind"], "own_manifest")
+        self.assertEqual(decided["e/stuck"]["add"], [])
         self.assertNotIn("h/yanked", decided)
         self.assertEqual({j["name"] for j in jobs}, {"a/app", "b/lib", "d/uses-x", "x/x"})
         self.assertEqual(shards, 1)
@@ -202,6 +203,13 @@ class Probe(unittest.TestCase):
         self.assertEqual(v["kind"], "dep_manifest")
         self.assertIn("moonbitlang/regexp", v["message"])
         self.assertNotIn("/tmp/w/abc", v["log"])
+
+    def test_missing_import_is_build(self):
+        log = "2: Cannot find import 'moonbitlang/quickcheck/gen' in moonbit-community/XMLParser@0.2.6\n"
+        v = verdict_resolve(self.s(log), [])
+        self.assertEqual(v["kind"], "build")
+        self.assertIn("moonbit-community/XMLParser@0.2.6 imports moonbitlang/quickcheck/gen", v["message"])
+        self.assertEqual(verdict_resolve(self.s(log), ["x/y@1.0.0"])["kind"], "dep_manifest")
 
     def test_download_failure_is_unknown(self):
         self.assertEqual(verdict_resolve(self.s("error: failed to download x/y"), [])["kind"], "unknown")

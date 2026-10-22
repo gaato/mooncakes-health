@@ -21,6 +21,9 @@ from .index import Index, read
 from .resolve import predict
 from .schema import DEP_MANIFEST, OWN_MANIFEST, UNKNOWN, UNRESOLVABLE
 
+# Part of every result key: bump it when the way of checking changes, so
+# every module is checked again.
+METHOD = 2
 PER_SHARD = 150
 MAX_SHARDS = 16
 FETCH_ROUNDS = 6
@@ -89,7 +92,7 @@ def load_json(source: str | None, default):
 
 
 def job_key(module: str, add, moon: str) -> str:
-    return f"{module}|{','.join(add)}|{moon}"
+    return f"{module}|{','.join(add)}|{moon}|{METHOD}"
 
 
 def run(index: Index, moon: str, previous: dict, known_formats: dict, now: str):
@@ -121,7 +124,9 @@ def run(index: Index, moon: str, previous: dict, known_formats: dict, now: str):
                                  "log": "", "moon": moon, "checked_at": now, "key": ""}
             continue
         if p.kind in (OWN_MANIFEST, UNRESOLVABLE, DEP_MANIFEST):
-            decided[name] = {**base, "kind": p.kind, "blockers": list(p.blockers), "add": list(p.add),
+            # Versions picked on the way to a dead end were never tried, so
+            # they are not shown.
+            decided[name] = {**base, "kind": p.kind, "blockers": list(p.blockers), "add": [],
                              "errors": [], "message": "", "log": "", "moon": moon, "checked_at": now,
                              "key": job_key(module, p.add, moon)}
             continue

@@ -26,6 +26,8 @@ TIMEOUT = 300
 TARGET_NAMES = {"wasm": "Wasm", "wasm-gc": "WasmGC", "js": "Js", "native": "Native", "llvm": "LLVM"}
 ERROR_CODE = re.compile(r"Error: \[(\d{4})\]")
 REJECTED = re.compile(r"`moon\.(?:mod|pkg)\.json` at '[^']*/\.mooncakes/([^/']+/[^/']+)")
+# The resolved versions do not provide a package some module imports.
+MISSING_IMPORT = re.compile(r"Cannot find import '([^']+)' in ([^\s]+)")
 NETWORK = re.compile(r"(?i)failed to download|error sending request|connection (?:reset|refused|closed)|timed out|dns error|status code 5\d\d")
 
 
@@ -69,6 +71,7 @@ def summarize(code: int | None, log: str, work: Path) -> dict:
         "timed_out": code is None,
         "network": bool(NETWORK.search(log)),
         "rejected": REJECTED.findall(log),
+        "missing_import": MISSING_IMPORT.search(log),
     }
 
 
@@ -110,6 +113,12 @@ def verdict_resolve(s: dict, add: list[str]) -> dict:
         rejected = ", ".join(sorted(set(s["rejected"])))
         tried = " even with the added versions" if add else ""
         return {**base, "kind": "dep_manifest", "message": f"moon rejects the JSON manifest of {rejected}{tried}."}
+    if s["missing_import"]:
+        pkg, where = s["missing_import"].groups()
+        message = f"{where} imports {pkg}, which the resolved versions do not have"
+        if add:
+            return {**base, "kind": "dep_manifest", "message": f"With the added versions, {message}."}
+        return {**base, "kind": "build", "message": f"{message}."}
     if s["network"]:
         return {**base, "kind": "unknown", "message": "A download failed."}
     return {**base, "kind": "unknown", "message": "moon could not resolve the dependencies."}
@@ -118,7 +127,7 @@ def verdict_resolve(s: dict, add: list[str]) -> dict:
 def verdict_check(code: int | None, s: dict, add: list[str], imported: int, target: str) -> dict:
     base = {"errors": s["errors"], "log": s["log"] if code != 0 else ""}
     if code == 0:
-        note = "" if imported else f"No package can be imported on {target}."
+        note = "" if imported else f"Has no library package for {target}, so only its dependencies were checked."
         return {**base, "kind": "workaround" if add else "ok", "message": note}
     if s["timed_out"]:
         return {**base, "kind": "unknown", "message": "moon check timed out."}
